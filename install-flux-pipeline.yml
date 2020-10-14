@@ -1,0 +1,54 @@
+# create a unique name based on your project requirements
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+
+resources:
+- repo: self
+
+# global variables
+variables:
+  vmImageName: 'ubuntu-latest'
+  kubernetesAzureResourceGroup: '_rg-aks-d-we-001'
+  kubernetesCluster: 'aks-d-we-001'
+  
+stages:
+- stage: Release
+  displayName: Release stage
+  jobs:
+    - deployment: DeployToAKS
+      pool:
+        vmImage: $(vmImageName)
+      environment: prod
+      strategy:
+       runOnce:
+         deploy:
+           steps:
+              - checkout: self
+              - task: HelmInstaller@1
+                displayName: Helm installer
+                inputs: 
+                  helmVersionToInstall: latest
+              - task: Kubernetes@1
+                displayName: Create Kubernetes flux NS
+                inputs:
+                  connectionType: 'Kubernetes Service Connection'
+                  kubernetesServiceEndpoint: 'cluster-conn'
+                  command: 'apply'
+                  arguments: '-f manifests/flux-ns.yaml'
+              - script: |
+                  helm repo add fluxcd https://charts.fluxcd.io
+                  helm repo update
+                displayName: 'Update Helm repo charts'
+              - task: HelmDeploy@0
+                inputs:
+                  connectionType: 'Azure Resource Manager'
+                  azureSubscription: 'azure-conn'
+                  azureResourceGroup: '_rg-aks-d-we-001'
+                  kubernetesCluster: 'aks-d-we-001'
+                  namespace: 'flux'
+                  command: 'upgrade'
+                  chartType: 'Name'
+                  chartName: 'fluxcd/flux'
+                  releaseName: 'flux'
+                  valueFile: 'manifests/values.yaml'

@@ -1,0 +1,6 @@
+git:
+  url: "git@ssh.dev.azure.com:v3/<azure_devops_org_name>/<project_name>/<repo_name>"
+  path: "azure-vote"
+  branch: "master"
+  timeout: "10s"
+  pollInterval: "10s"
